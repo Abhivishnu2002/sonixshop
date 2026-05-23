@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   description: "Explore premium consumer electronics, high-fidelity audio, pro gaming peripherals, and smart wearables. Engineered for elegance, performance, and simplicity.",
   keywords: ["premium gadgets", "electronics store", "Nothing style audio", "mechanical keyboards", "Apple tech accessories", "smart ring", "high-end store"],
   authors: [{ name: "SonixShop Group" }],
+  icons: {
+    icon: "/browser_logo.png",
+    shortcut: "/browser_logo.png",
+    apple: "/browser_logo.png",
+  },
 };
 
 export default function RootLayout({
