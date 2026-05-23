@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
+import { PromoCarousel } from "@/components/promo/PromoCarousel";
 import { Hero } from "@/components/hero/Hero";
 import { Footer } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/product/ProductCard";
@@ -67,6 +68,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-[#020617] text-[#F8FAFC]">
       <AnnouncementBar />
       <Header />
+      <PromoCarousel />
       <Hero />
 
       {/* Trust Features / Badges Row */}
