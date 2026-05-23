@@ -806,7 +806,7 @@ export const products: Product[] = [
     reviewsCount: 654,
     stock: 140,
     images: [
-      "https://images.unsplash.com/photo-1622445262465-24819af522f5?q=80&w=600&auto=format&fit=crop"
+      "https://images.unsplash.com/photo-1585771724684-38269d6639fd?q=80&w=600&auto=format&fit=crop"
     ],
     colors: [
       { name: "Sandstone Grey", hex: "#4b5563" },

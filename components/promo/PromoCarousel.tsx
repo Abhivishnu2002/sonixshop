@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence, PanInfo, type Variants } from "framer-motion";
@@ -16,6 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface SlideData {
   id: number;
   tag: string;
@@ -29,69 +30,31 @@ interface SlideData {
   ctaSecondaryText?: string;
   ctaSecondaryLink?: string;
   bannerImage: string;
-  overlayGradient: string;
   accentColor: string;
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
 const AUTOPLAY_INTERVAL = 5000;
-
-// Cubic bezier easing typed as a tuple so TS satisfies Framer Motion's Easing type
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-// ─── Slide variants (typed as Variants to avoid 'number[]' inference) ───────
-const bgVariants: Variants = {
-  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", scale: 1.08 }),
+// ─── Animation Variants ───────────────────────────────────────────────────────
+// ONE parent block animation instead of 6 separate child animations.
+// Reduces Framer Motion's JS animation loops from 6 → 1 per transition.
+const contentVariants: Variants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 28 : -28 }),
   center: {
-    x: "0%",
-    scale: 1.05,
-    transition: {
-      x: { ease: EASE_OUT, duration: 0.75 },
-      scale: { duration: 6, ease: "linear" },
-    },
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.42, ease: EASE_OUT },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? "-100%" : "100%",
-    scale: 1.08,
-    transition: { x: { ease: EASE_OUT, duration: 0.75 } },
+    opacity: 0,
+    x: dir > 0 ? -18 : 18,
+    transition: { duration: 0.22, ease: "easeIn" },
   }),
 };
 
-const contentVariants: Variants = {
-  enter: { opacity: 0 },
-  center: { opacity: 1, transition: { duration: 0.4, ease: "easeOut" } },
-  exit: { opacity: 0, transition: { duration: 0.2, ease: "easeIn" } },
-};
-
-const tagVariants: Variants = {
-  enter: { opacity: 0, y: 12 },
-  center: { opacity: 1, y: 0, transition: { delay: 0.1, duration: 0.45, ease: EASE_OUT } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
-};
-
-const headlineVariants: Variants = {
-  enter: { opacity: 0, y: 24 },
-  center: { opacity: 1, y: 0, transition: { delay: 0.18, duration: 0.55, ease: EASE_OUT } },
-  exit: { opacity: 0, y: -12, transition: { duration: 0.2 } },
-};
-
-const subVariants: Variants = {
-  enter: { opacity: 0, y: 20 },
-  center: { opacity: 1, y: 0, transition: { delay: 0.26, duration: 0.55, ease: EASE_OUT } },
-  exit: { opacity: 0, transition: { duration: 0.2 } },
-};
-
-const descVariants: Variants = {
-  enter: { opacity: 0, y: 16 },
-  center: { opacity: 1, y: 0, transition: { delay: 0.34, duration: 0.5, ease: EASE_OUT } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
-};
-
-const ctaVariants: Variants = {
-  enter: { opacity: 0, scale: 0.93 },
-  center: { opacity: 1, scale: 1, transition: { delay: 0.42, duration: 0.5, ease: EASE_OUT } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
-};
-
+// ─── Slide Data ───────────────────────────────────────────────────────────────
 const slides: SlideData[] = [
   {
     id: 1,
@@ -107,8 +70,6 @@ const slides: SlideData[] = [
     ctaSecondaryText: "View All Offers",
     ctaSecondaryLink: "/products",
     bannerImage: "/banners/banner_flash_sale.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-red-500 via-orange-500 to-amber-500",
   },
   {
@@ -125,8 +86,6 @@ const slides: SlideData[] = [
     ctaSecondaryText: "New Arrivals",
     ctaSecondaryLink: "/products?filter=new",
     bannerImage: "/banners/banner_new_collection.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-indigo-400 via-blue-400 to-cyan-400",
   },
   {
@@ -143,8 +102,6 @@ const slides: SlideData[] = [
     ctaSecondaryText: "Best Sellers",
     ctaSecondaryLink: "/products?category=audio",
     bannerImage: "/banners/banner_audio.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-purple-400 via-violet-400 to-fuchsia-400",
   },
   {
@@ -161,8 +118,6 @@ const slides: SlideData[] = [
     ctaSecondaryText: "Featured Gear",
     ctaSecondaryLink: "/products?category=gaming",
     bannerImage: "/banners/banner_gaming.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-rose-400 via-red-400 to-orange-400",
   },
   {
@@ -179,8 +134,6 @@ const slides: SlideData[] = [
     ctaSecondaryText: "View Setups",
     ctaSecondaryLink: "/products?category=accessories",
     bannerImage: "/banners/banner_workspace.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-emerald-400 via-teal-400 to-cyan-400",
   },
   {
@@ -197,13 +150,14 @@ const slides: SlideData[] = [
     ctaSecondaryText: "Under ₹499",
     ctaSecondaryLink: "/products?filter=deals",
     bannerImage: "/banners/banner_budget.png",
-    overlayGradient:
-      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
     accentColor: "from-amber-400 via-yellow-400 to-orange-400",
   },
 ];
 
-export const PromoCarousel: React.FC = () => {
+// ─── Component ────────────────────────────────────────────────────────────────
+// memo() prevents re-renders when the parent (Home) re-renders every second
+// from the countdown timer — the carousel takes no props so memo is a free win.
+export const PromoCarousel = memo(function PromoCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
@@ -211,9 +165,13 @@ export const PromoCarousel: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
 
-  const clearAutoplay = () => {
-    if (autoplayRef.current) clearInterval(autoplayRef.current);
-  };
+  // Stable ref so clearAutoplay doesn't recreate on every render
+  const clearAutoplay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current);
+      autoplayRef.current = null;
+    }
+  }, []);
 
   const goToNext = useCallback(() => {
     if (isAnimating) return;
@@ -239,23 +197,24 @@ export const PromoCarousel: React.FC = () => {
     [isAnimating, currentIndex]
   );
 
-  // Autoplay
   useEffect(() => {
     clearAutoplay();
     if (!isHovered && !isDragging && !isAnimating) {
       autoplayRef.current = setInterval(goToNext, AUTOPLAY_INTERVAL);
     }
     return clearAutoplay;
-  }, [currentIndex, isHovered, isDragging, isAnimating, goToNext]);
+  }, [currentIndex, isHovered, isDragging, isAnimating, goToNext, clearAutoplay]);
 
-  const handleDragEnd = (event: unknown, info: PanInfo) => {
-    setIsDragging(false);
-    if (info.offset.x < -50) goToNext();
-    else if (info.offset.x > 50) goToPrev();
-  };
+  const handleDragEnd = useCallback(
+    (_event: unknown, info: PanInfo) => {
+      setIsDragging(false);
+      if (info.offset.x < -50) goToNext();
+      else if (info.offset.x > 50) goToPrev();
+    },
+    [goToNext, goToPrev]
+  );
 
   const slide = slides[currentIndex];
-
 
   return (
     <div
@@ -263,54 +222,79 @@ export const PromoCarousel: React.FC = () => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* ── Main container ─────────────────────────────────── */}
       <div className="relative w-full h-[260px] sm:h-[360px] lg:h-[460px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/[0.06] shadow-2xl">
 
-        {/* ── Background layer (Ken Burns image) ─────────── */}
-        <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl">
-          <AnimatePresence initial={false} custom={direction}>
-            <motion.div
-              key={`bg-${currentIndex}`}
-              custom={direction}
-              variants={bgVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="absolute inset-0 will-change-transform"
-            >
-              <Image
-                src={slide.bannerImage}
-                alt={slide.subheadline}
-                fill
-                className="object-cover object-center"
-                priority={currentIndex === 0}
-                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 100vw, 1280px"
-                quality={90}
-              />
-            </motion.div>
-          </AnimatePresence>
+        {/* ── Background images ─────────────────────────────────────
+            All 6 images are ALWAYS in the DOM — never unmounted.
+            CSS opacity crossfade between them (compositor-thread only).
+            Ken Burns is a CSS transition on the wrapper div (no JS).
+            This eliminates every single image-loading flash on slide change.
+        ──────────────────────────────────────────────────────────── */}
+        <div className="absolute inset-0" aria-hidden="true">
+          {slides.map((s, i) => {
+            const isActive = i === currentIndex;
+            return (
+              <div
+                key={s.id}
+                className="absolute inset-0"
+                style={{
+                  // CSS opacity crossfade — compositor thread, zero JS
+                  opacity: isActive ? 1 : 0,
+                  transition: "opacity 650ms ease-in-out",
+                  zIndex: isActive ? 1 : 0,
+                }}
+              >
+                {/* Ken Burns wrapper: CSS transform transition — compositor thread.
+                    Inactive → scale(1.07) instantly (hidden, no animation shown).
+                    Active   → transition to scale(1.01) over 7s (slow zoom).
+                    No JS RAF loop, no Framer Motion overhead for this effect. */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    transform: isActive ? "scale(1.01)" : "scale(1.07)",
+                    transition: isActive ? "transform 7000ms ease-out" : "none",
+                    willChange: isActive ? "transform" : "auto",
+                  }}
+                >
+                  <Image
+                    src={s.bannerImage}
+                    alt={s.subheadline}
+                    fill
+                    className="object-cover object-center"
+                    // Preload first 2 slides immediately; browser fetches rest
+                    // in background since they're in the DOM from mount.
+                    priority={i < 2}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1280px) 100vw, 1280px"
+                    quality={75}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* ── Dark overlay ────────────────────────────────── */}
-        <div
-          className={`absolute inset-0 bg-gradient-to-r ${slide.overlayGradient} transition-opacity duration-700 z-10`}
-        />
-        {/* Bottom fade for dot indicators */}
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
+        {/* Static dark gradient overlay — no dynamic className binding */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20 z-10 pointer-events-none" />
+        {/* Bottom scrim for dot legibility */}
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
 
-        {/* ── Draggable content layer ─────────────────────── */}
+        {/* ── Draggable + Content layer ─────────────────────────────
+            Single AnimatePresence for the WHOLE content block.
+            1 Framer Motion RAF loop instead of 6 (tag + h2 + p + p + div).
+            No mode="wait" → exit and enter run simultaneously.
+            Perceived transition feels ~2× faster.
+        ──────────────────────────────────────────────────────────── */}
         <motion.div
           drag={isAnimating ? false : "x"}
-          dragElastic={0.15}
+          dragElastic={0.12}
           dragConstraints={{ left: 0, right: 0 }}
           onDragStart={() => setIsDragging(true)}
           onDragEnd={handleDragEnd}
           className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing select-none touch-pan-y"
         >
-          {/* ── Animated content ───────────────────────────── */}
-          <AnimatePresence initial={false} custom={direction} mode="wait">
+          <AnimatePresence initial={false} custom={direction}>
             <motion.div
-              key={`content-${currentIndex}`}
+              key={currentIndex}
               custom={direction}
               variants={contentVariants}
               initial="enter"
@@ -319,77 +303,40 @@ export const PromoCarousel: React.FC = () => {
               onAnimationComplete={(def) => {
                 if (def === "center") setIsAnimating(false);
               }}
-              className="absolute inset-0 flex items-center"
+              className="absolute inset-0 flex items-center will-change-transform"
             >
-              {/* ── Text block ─────────────────────────────── */}
               <div className="w-full px-6 sm:px-10 lg:px-16 max-w-[640px] lg:max-w-[580px]">
 
                 {/* Tag badge */}
-                <motion.div
-                  key={`tag-${currentIndex}`}
-                  custom={direction}
-                  variants={tagVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
+                <div
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm mb-4 ${slide.tagColor}`}
                 >
                   {slide.tagIcon}
                   <span>{slide.tag}</span>
-                </motion.div>
+                </div>
 
                 {/* Main headline */}
-                <motion.h2
-                  key={`h2-${currentIndex}`}
-                  custom={direction}
-                  variants={headlineVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  className="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-[1.05] tracking-tight mb-1 sm:mb-2"
-                >
+                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-[1.05] tracking-tight mb-1 sm:mb-2">
                   {slide.headline}
-                </motion.h2>
+                </h2>
 
                 {/* Gradient sub-headline */}
-                <motion.p
-                  key={`sub-${currentIndex}`}
-                  custom={direction}
-                  variants={subVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
+                <p
                   className={`text-base sm:text-2xl lg:text-3xl font-extrabold bg-gradient-to-r ${slide.accentColor} bg-clip-text text-transparent leading-snug mb-3 sm:mb-4`}
                 >
                   {slide.subheadline}
-                </motion.p>
+                </p>
 
-                {/* Description — hidden on small mobile */}
-                <motion.p
-                  key={`desc-${currentIndex}`}
-                  custom={direction}
-                  variants={descVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  className="hidden sm:block text-xs sm:text-sm text-white/70 leading-relaxed mb-5 sm:mb-6 max-w-sm font-medium"
-                >
+                {/* Description — hidden on mobile to reduce layout cost */}
+                <p className="hidden sm:block text-xs sm:text-sm text-white/70 leading-relaxed mb-5 sm:mb-6 max-w-sm font-medium">
                   {slide.description}
-                </motion.p>
+                </p>
 
                 {/* CTAs */}
-                <motion.div
-                  key={`cta-${currentIndex}`}
-                  custom={direction}
-                  variants={ctaVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  className="flex items-center gap-3 flex-wrap"
-                >
+                <div className="flex items-center gap-3 flex-wrap">
                   <Link
                     href={slide.ctaLink}
-                    className={`inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r ${slide.accentColor} shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 cursor-pointer`}
+                    className={`inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r ${slide.accentColor} shadow-lg hover:shadow-xl hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {slide.ctaText}
@@ -398,46 +345,46 @@ export const PromoCarousel: React.FC = () => {
                   {slide.ctaSecondaryText && (
                     <Link
                       href={slide.ctaSecondaryLink ?? "#"}
-                      className="hidden sm:inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-semibold text-white/80 border border-white/20 backdrop-blur-sm hover:bg-white/10 hover:text-white transition-all duration-300 cursor-pointer"
+                      className="hidden sm:inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-semibold text-white/80 border border-white/20 backdrop-blur-sm hover:bg-white/10 hover:text-white transition-colors duration-300 cursor-pointer"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {slide.ctaSecondaryText}
                     </Link>
                   )}
-                </motion.div>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>
         </motion.div>
 
-        {/* ── Prev button ─────────────────────────────────── */}
+        {/* Prev button */}
         <button
           onClick={goToPrev}
           disabled={isAnimating}
           aria-label="Previous slide"
-          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
-        {/* ── Next button ─────────────────────────────────── */}
+        {/* Next button */}
         <button
           onClick={goToNext}
           disabled={isAnimating}
           aria-label="Next slide"
-          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
         >
           <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
-        {/* ── Slide counter (top-right) ────────────────────── */}
+        {/* Slide counter */}
         <div className="absolute top-4 right-4 z-30 hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm">
           <span className="text-[10px] font-bold text-white tabular-nums">{currentIndex + 1}</span>
           <span className="text-[10px] text-white/40">/</span>
           <span className="text-[10px] text-white/50 tabular-nums">{slides.length}</span>
         </div>
 
-        {/* ── Dot pagination ───────────────────────────────── */}
+        {/* Dot pagination */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
           {slides.map((s, idx) => {
             const active = idx === currentIndex;
@@ -448,18 +395,16 @@ export const PromoCarousel: React.FC = () => {
                 disabled={isAnimating}
                 aria-label={`Go to slide ${idx + 1}`}
                 className={`rounded-full transition-all duration-300 cursor-pointer ${
-                  active
-                    ? "w-6 h-2 bg-white"
-                    : "w-2 h-2 bg-white/30 hover:bg-white/60"
+                  active ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/30 hover:bg-white/60"
                 }`}
               />
             );
           })}
         </div>
 
-        {/* ── Progress bar ─────────────────────────────────── */}
-        {!isHovered && !isDragging && (
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] z-30 bg-white/10 overflow-hidden">
+        {/* Progress bar — always rendered to avoid layout shift on hover */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] z-30 bg-white/10 overflow-hidden">
+          {!isHovered && !isDragging && (
             <motion.div
               key={currentIndex}
               className="h-full bg-white/50"
@@ -467,9 +412,9 @@ export const PromoCarousel: React.FC = () => {
               animate={{ width: "100%" }}
               transition={{ duration: AUTOPLAY_INTERVAL / 1000, ease: "linear" }}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
-};
+});

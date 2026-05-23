@@ -43,7 +43,7 @@ export const categories: Category[] = [
     icon: "Zap",
     description: "High-speed charging units, multi-ports, and premium power banks.",
     gradient: "from-amber-500 to-orange-600",
-    image: "https://images.unsplash.com/photo-1622445262465-24819af522f5?q=80&w=600&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?q=80&w=600&auto=format&fit=crop"
   },
   {
     id: "cat-5",

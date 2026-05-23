@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
@@ -22,35 +22,53 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-export default function Home() {
-  const [timeLeft, setTimeLeft] = useState({
-    hours: 23,
-    minutes: 59,
-    seconds: 59,
-  });
+// ─── CountdownTimer ──────────────────────────────────────────────────────────
+// Isolated in its own component so the 1-second setInterval only causes THIS
+// component to re-render — not Home, not PromoCarousel, not Hero.
+const CountdownTimer = memo(function CountdownTimer() {
+  const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 59, seconds: 59 });
 
-  // Tick the countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { hours: prev.hours, minutes: prev.minutes - 1, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        } else {
-          // Reset to 24h
-          return { hours: 23, minutes: 59, seconds: 59 };
-        }
+        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
+        if (prev.minutes > 0) return { hours: prev.hours, minutes: prev.minutes - 1, seconds: 59 };
+        if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        return { hours: 23, minutes: 59, seconds: 59 };
       });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const formatNumber = (num: number) => {
-    return num < 10 ? `0${num}` : num;
-  };
+  const fmt = (n: number) => (n < 10 ? `0${n}` : String(n));
+
+  return (
+    <div className="flex items-center justify-center lg:justify-start gap-3.5 pt-4">
+      <div className="flex flex-col items-center">
+        <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-white shadow-lg">
+          {fmt(timeLeft.hours)}
+        </div>
+        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">Hrs</span>
+      </div>
+      <span className="text-xl font-bold text-slate-700 animate-pulse">:</span>
+      <div className="flex flex-col items-center">
+        <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-white shadow-lg">
+          {fmt(timeLeft.minutes)}
+        </div>
+        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">Mins</span>
+      </div>
+      <span className="text-xl font-bold text-slate-700 animate-pulse">:</span>
+      <div className="flex flex-col items-center">
+        <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-indigo-400 shadow-lg glow-card">
+          {fmt(timeLeft.seconds)}
+        </div>
+        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">Secs</span>
+      </div>
+    </div>
+  );
+});
+
+export default function Home() {
 
   // Get featured products
   const featuredList = products.filter((p) => p.isFeatured).slice(0, 8);
@@ -194,34 +212,7 @@ export default function Home() {
               </p>
 
               {/* Countdown UI */}
-              <div className="flex items-center justify-center lg:justify-start gap-3.5 pt-4">
-                <div className="flex flex-col items-center">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-white shadow-lg">
-                    {formatNumber(timeLeft.hours)}
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">
-                    Hrs
-                  </span>
-                </div>
-                <span className="text-xl font-bold text-slate-700 animate-pulse">:</span>
-                <div className="flex flex-col items-center">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-white shadow-lg">
-                    {formatNumber(timeLeft.minutes)}
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">
-                    Mins
-                  </span>
-                </div>
-                <span className="text-xl font-bold text-slate-700 animate-pulse">:</span>
-                <div className="flex flex-col items-center">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center font-mono text-xl font-bold text-indigo-400 shadow-lg glow-card">
-                    {formatNumber(timeLeft.seconds)}
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1.5 font-bold">
-                    Secs
-                  </span>
-                </div>
-              </div>
+              <CountdownTimer />
             </div>
 
             {/* Deal cards grid */}

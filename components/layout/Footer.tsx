@@ -40,11 +40,11 @@ export const Footer: React.FC = () => {
       { label: "Order Cancellation", href: "#" },
     ],
     policies: [
-      { label: "Privacy Policy", href: "#" },
+      { label: "Privacy Policy", href: "/privacy-policy" },
       { label: "Return Policy", href: "#" },
       { label: "Sellers Policy", href: "#" },
       { label: "Damage Policy", href: "#" },
-      { label: "Terms & Conditions", href: "#" },
+      { label: "Terms & Conditions", href: "/terms-and-conditions" },
     ],
     sellers: [
       { label: "Become a Seller", href: "#" },
