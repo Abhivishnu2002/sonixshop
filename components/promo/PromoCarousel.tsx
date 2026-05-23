@@ -1,359 +1,474 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { ChevronLeft, ChevronRight, Sparkles, Tag, Flame, ShieldCheck, Gamepad2, Headphones } from "lucide-react";
+import { motion, AnimatePresence, PanInfo, type Variants } from "framer-motion";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Tag,
+  Flame,
+  ShieldCheck,
+  Gamepad2,
+  Headphones,
+  ArrowRight,
+} from "lucide-react";
 
 interface SlideData {
   id: number;
   tag: string;
   tagIcon: React.ReactNode;
   tagColor: string;
-  title: string;
-  titleAccent: string;
+  headline: string;
+  subheadline: string;
   description: string;
   ctaText: string;
   ctaLink: string;
-  bgGradient: string;
-  glowColor: string;
-  image: string;
+  ctaSecondaryText?: string;
+  ctaSecondaryLink?: string;
+  bannerImage: string;
+  overlayGradient: string;
+  accentColor: string;
 }
+
+const AUTOPLAY_INTERVAL = 5000;
+
+// Cubic bezier easing typed as a tuple so TS satisfies Framer Motion's Easing type
+const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+// ─── Slide variants (typed as Variants to avoid 'number[]' inference) ───────
+const bgVariants: Variants = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", scale: 1.08 }),
+  center: {
+    x: "0%",
+    scale: 1.05,
+    transition: {
+      x: { ease: EASE_OUT, duration: 0.75 },
+      scale: { duration: 6, ease: "linear" },
+    },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? "-100%" : "100%",
+    scale: 1.08,
+    transition: { x: { ease: EASE_OUT, duration: 0.75 } },
+  }),
+};
+
+const contentVariants: Variants = {
+  enter: { opacity: 0 },
+  center: { opacity: 1, transition: { duration: 0.4, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.2, ease: "easeIn" } },
+};
+
+const tagVariants: Variants = {
+  enter: { opacity: 0, y: 12 },
+  center: { opacity: 1, y: 0, transition: { delay: 0.1, duration: 0.45, ease: EASE_OUT } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+};
+
+const headlineVariants: Variants = {
+  enter: { opacity: 0, y: 24 },
+  center: { opacity: 1, y: 0, transition: { delay: 0.18, duration: 0.55, ease: EASE_OUT } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.2 } },
+};
+
+const subVariants: Variants = {
+  enter: { opacity: 0, y: 20 },
+  center: { opacity: 1, y: 0, transition: { delay: 0.26, duration: 0.55, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
+
+const descVariants: Variants = {
+  enter: { opacity: 0, y: 16 },
+  center: { opacity: 1, y: 0, transition: { delay: 0.34, duration: 0.5, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+const ctaVariants: Variants = {
+  enter: { opacity: 0, scale: 0.93 },
+  center: { opacity: 1, scale: 1, transition: { delay: 0.42, duration: 0.5, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+const slides: SlideData[] = [
+  {
+    id: 1,
+    tag: "Flash Sale",
+    tagIcon: <Flame className="w-3.5 h-3.5" />,
+    tagColor: "bg-red-950/70 text-red-400 border-red-800/50",
+    headline: "Up To 70% Off",
+    subheadline: "Smart Gadgets & Accessories",
+    description:
+      "Rare drops. Premium earbuds, smartwatches, and speakers — marked down for 24 hours only.",
+    ctaText: "Shop Deals Now",
+    ctaLink: "/products?filter=deals",
+    ctaSecondaryText: "View All Offers",
+    ctaSecondaryLink: "/products",
+    bannerImage: "/banners/banner_flash_sale.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-red-500 via-orange-500 to-amber-500",
+  },
+  {
+    id: 2,
+    tag: "New Collection",
+    tagIcon: <Sparkles className="w-3.5 h-3.5" />,
+    tagColor: "bg-indigo-950/70 text-indigo-400 border-indigo-800/50",
+    headline: "Future Ready",
+    subheadline: "Next-Gen Tech Essentials",
+    description:
+      "Foldable phones, transparent wearables, and minimalist earbuds built for tomorrow's lifestyle.",
+    ctaText: "Explore Collection",
+    ctaLink: "/products?filter=new",
+    ctaSecondaryText: "New Arrivals",
+    ctaSecondaryLink: "/products?filter=new",
+    bannerImage: "/banners/banner_new_collection.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-indigo-400 via-blue-400 to-cyan-400",
+  },
+  {
+    id: 3,
+    tag: "Premium Audio",
+    tagIcon: <Headphones className="w-3.5 h-3.5" />,
+    tagColor: "bg-purple-950/70 text-purple-400 border-purple-800/50",
+    headline: "Immersive Sound",
+    subheadline: "Hi-Fi Acoustic Experience",
+    description:
+      "Total sound isolation. Over-ear headphones, noise-cancelling earbuds, and portable spatial speakers.",
+    ctaText: "Explore Audio",
+    ctaLink: "/products?category=audio",
+    ctaSecondaryText: "Best Sellers",
+    ctaSecondaryLink: "/products?category=audio",
+    bannerImage: "/banners/banner_audio.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-purple-400 via-violet-400 to-fuchsia-400",
+  },
+  {
+    id: 4,
+    tag: "Gaming Zone",
+    tagIcon: <Gamepad2 className="w-3.5 h-3.5" />,
+    tagColor: "bg-rose-950/70 text-rose-400 border-rose-800/50",
+    headline: "Level Up Your Setup",
+    subheadline: "Pro Gaming & RGB Gear",
+    description:
+      "Mechanical keyboards, low-latency mice, and gaming headsets engineered for peak performance.",
+    ctaText: "Shop Gaming",
+    ctaLink: "/products?category=gaming",
+    ctaSecondaryText: "Featured Gear",
+    ctaSecondaryLink: "/products?category=gaming",
+    bannerImage: "/banners/banner_gaming.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-rose-400 via-red-400 to-orange-400",
+  },
+  {
+    id: 5,
+    tag: "Workspace",
+    tagIcon: <ShieldCheck className="w-3.5 h-3.5" />,
+    tagColor: "bg-emerald-950/70 text-emerald-400 border-emerald-800/50",
+    headline: "Build Your Dream",
+    subheadline: "Futuristic Desk Setup",
+    description:
+      "Wireless charging pads, multi-port hubs, cable management, and premium monitors for your ideal workspace.",
+    ctaText: "Shop Workspace",
+    ctaLink: "/products?category=accessories",
+    ctaSecondaryText: "View Setups",
+    ctaSecondaryLink: "/products?category=accessories",
+    bannerImage: "/banners/banner_workspace.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-emerald-400 via-teal-400 to-cyan-400",
+  },
+  {
+    id: 6,
+    tag: "Budget Finds",
+    tagIcon: <Tag className="w-3.5 h-3.5" />,
+    tagColor: "bg-amber-950/70 text-amber-400 border-amber-800/50",
+    headline: "Amazing Tech",
+    subheadline: "High Quality Under ₹499",
+    description:
+      "Premium-grade cables, chargers, earbuds, key finders, and stands without the premium price tag.",
+    ctaText: "Shop Budget Deals",
+    ctaLink: "/products?filter=deals",
+    ctaSecondaryText: "Under ₹499",
+    ctaSecondaryLink: "/products?filter=deals",
+    bannerImage: "/banners/banner_budget.png",
+    overlayGradient:
+      "from-black/80 via-black/50 to-black/20 lg:from-black/85 lg:via-black/60 lg:to-transparent",
+    accentColor: "from-amber-400 via-yellow-400 to-orange-400",
+  },
+];
 
 export const PromoCarousel: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [direction, setDirection] = useState(0); // -1 for left, 1 for right
+  const [direction, setDirection] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
 
-  const slides: SlideData[] = [
-    {
-      id: 1,
-      tag: "Flash Sale",
-      tagIcon: <Flame className="w-3.5 h-3.5" />,
-      tagColor: "bg-red-950/60 text-red-400 border-red-900/30",
-      title: "Up To 70% Off",
-      titleAccent: "Smart Gadgets & Accessories",
-      description: "Take advantage of rare drops. Premium transparent accessories, custom mechanical keycaps, and power components marked down for a limited time.",
-      ctaText: "Shop Deals",
-      ctaLink: "/products?filter=deals",
-      bgGradient: "from-[#020617] via-[#090b1c] to-[#020617]",
-      glowColor: "rgba(99, 102, 241, 0.15)",
-      image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-      id: 2,
-      tag: "New Collection",
-      tagIcon: <Sparkles className="w-3.5 h-3.5" />,
-      tagColor: "bg-indigo-950/60 text-indigo-400 border-indigo-900/30",
-      title: "Future Ready",
-      titleAccent: "Next-Gen Tech Essentials",
-      description: "Discover the newest arrivals inspired by raw aesthetics. Pro high-fidelity audio, smart temperature wearables, and dual charging pedestals designed for Tomorrow.",
-      ctaText: "Explore Collection",
-      ctaLink: "/products?filter=new",
-      bgGradient: "from-[#020617] via-[#0f0b24] to-[#020617]",
-      glowColor: "rgba(168, 85, 247, 0.15)",
-      image: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-      id: 3,
-      tag: "Gaming Zone",
-      tagIcon: <Gamepad2 className="w-3.5 h-3.5" />,
-      tagColor: "bg-purple-950/60 text-purple-400 border-purple-900/30",
-      title: "Level Up Your Setup",
-      titleAccent: "Pro Gaming & RGB Gear",
-      description: "Engineered for pure tactile responsiveness. Outfitted with high-speed keycaps, low-latency connection switches, and customized glowing desk accessories.",
-      ctaText: "Shop Gaming",
-      ctaLink: "/products?category=gaming",
-      bgGradient: "from-[#020617] via-[#1a0c21] to-[#020617]",
-      glowColor: "rgba(192, 132, 252, 0.15)",
-      image: "https://images.unsplash.com/photo-1627856013091-fed6e4e30025?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-      id: 4,
-      tag: "Audio Essentials",
-      tagIcon: <Headphones className="w-3.5 h-3.5" />,
-      tagColor: "bg-blue-950/60 text-blue-400 border-blue-900/30",
-      title: "Premium Sound",
-      titleAccent: "Hi-Fi Acoustic Experience",
-      description: "Immerse in total sound isolation. Premium over-ear headphones, noise-cancelling wireless earbuds, and spatial portable speakers offering absolute frequency details.",
-      ctaText: "Explore Audio",
-      ctaLink: "/products?category=audio",
-      bgGradient: "from-[#020617] via-[#080f24] to-[#020617]",
-      glowColor: "rgba(59, 130, 246, 0.15)",
-      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-      id: 5,
-      tag: "Workspace Collection",
-      tagIcon: <ShieldCheck className="w-3.5 h-3.5" />,
-      tagColor: "bg-emerald-950/60 text-emerald-400 border-emerald-900/30",
-      title: "Build Your Perfect",
-      titleAccent: "Futuristic Desk Setup",
-      description: "Form meets ultimate daily function. Magnetic phone pedestals, durable silicone cable bounds, and clean multi-port charging hubs organizing your creative desktop.",
-      ctaText: "Shop Workspace",
-      ctaLink: "/products?category=accessories",
-      bgGradient: "from-[#020617] via-[#081f18] to-[#020617]",
-      glowColor: "rgba(16, 185, 129, 0.15)",
-      image: "https://images.unsplash.com/photo-1618477388954-7852f32655ec?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-      id: 6,
-      tag: "Budget Finds",
-      tagIcon: <Tag className="w-3.5 h-3.5" />,
-      tagColor: "bg-amber-950/60 text-amber-400 border-amber-900/30",
-      title: "Amazing Tech",
-      titleAccent: "High Quality Under ₹499",
-      description: "Access premium gadgets without high premiums. Browse our curated selection of high-value chargers, fast nylon cords, key finders, and portable audio.",
-      ctaText: "Shop Budget Deals",
-      ctaLink: "/products?filter=deals",
-      bgGradient: "from-[#020617] via-[#1a140b] to-[#020617]",
-      glowColor: "rgba(245, 158, 11, 0.15)",
-      image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=600&auto=format&fit=crop",
-    },
-  ];
+  const clearAutoplay = () => {
+    if (autoplayRef.current) clearInterval(autoplayRef.current);
+  };
 
-  // Start/Stop Autoplay based on engagement and animation state
-  useEffect(() => {
-    if (!isHovered && !isDragging && !isAnimating) {
-      autoplayRef.current = setInterval(() => {
-        handleNext();
-      }, 4000);
-    }
-    return () => {
-      if (autoplayRef.current) clearInterval(autoplayRef.current);
-    };
-  }, [currentIndex, isHovered, isDragging, isAnimating]);
-
-  const handleNext = () => {
+  const goToNext = useCallback(() => {
     if (isAnimating) return;
     setIsAnimating(true);
     setDirection(1);
     setCurrentIndex((prev) => (prev + 1) % slides.length);
-  };
+  }, [isAnimating]);
 
-  const handlePrev = () => {
+  const goToPrev = useCallback(() => {
     if (isAnimating) return;
     setIsAnimating(true);
     setDirection(-1);
     setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-  };
+  }, [isAnimating]);
 
-  // Drag/Swipe handler
+  const goToSlide = useCallback(
+    (idx: number) => {
+      if (isAnimating || idx === currentIndex) return;
+      setIsAnimating(true);
+      setDirection(idx > currentIndex ? 1 : -1);
+      setCurrentIndex(idx);
+    },
+    [isAnimating, currentIndex]
+  );
+
+  // Autoplay
+  useEffect(() => {
+    clearAutoplay();
+    if (!isHovered && !isDragging && !isAnimating) {
+      autoplayRef.current = setInterval(goToNext, AUTOPLAY_INTERVAL);
+    }
+    return clearAutoplay;
+  }, [currentIndex, isHovered, isDragging, isAnimating, goToNext]);
+
   const handleDragEnd = (event: unknown, info: PanInfo) => {
     setIsDragging(false);
-    const swipeThreshold = 50;
-    if (info.offset.x < -swipeThreshold) {
-      handleNext();
-    } else if (info.offset.x > swipeThreshold) {
-      handlePrev();
-    }
+    if (info.offset.x < -50) goToNext();
+    else if (info.offset.x > 50) goToPrev();
   };
 
-  const slideVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? "100%" : "-100%",
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? "-100%" : "100%",
-      opacity: 0,
-    }),
-  };
+  const slide = slides[currentIndex];
 
-  const currentSlide = slides[currentIndex];
 
   return (
-    <div 
+    <div
+      className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 group/carousel"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full shrink-0 relative group/carousel overflow-hidden sm:overflow-visible"
     >
-      <div 
-        className="w-full relative rounded-[2rem] border border-slate-900 bg-slate-950 overflow-hidden h-[280px] sm:h-[350px] lg:h-[450px] transition-colors duration-500 shadow-2xl shadow-indigo-500/[0.02]"
-        style={{
-          boxShadow: `0 0 50px -12px ${currentSlide.glowColor}`,
-        }}
-      >
-        
-        {/* Ambient Glowing Orb */}
-        <div 
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full blur-[120px] pointer-events-none transition-all duration-700 z-0"
-          style={{ backgroundColor: currentSlide.glowColor }}
+      {/* ── Main container ─────────────────────────────────── */}
+      <div className="relative w-full h-[260px] sm:h-[360px] lg:h-[460px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/[0.06] shadow-2xl">
+
+        {/* ── Background layer (Ken Burns image) ─────────── */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={`bg-${currentIndex}`}
+              custom={direction}
+              variants={bgVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="absolute inset-0 will-change-transform"
+            >
+              <Image
+                src={slide.bannerImage}
+                alt={slide.subheadline}
+                fill
+                className="object-cover object-center"
+                priority={currentIndex === 0}
+                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 100vw, 1280px"
+                quality={90}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* ── Dark overlay ────────────────────────────────── */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-r ${slide.overlayGradient} transition-opacity duration-700 z-10`}
         />
+        {/* Bottom fade for dot indicators */}
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
 
-        <AnimatePresence initial={false} custom={direction}>
-          <motion.div
-            key={currentIndex}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            onAnimationComplete={(definition) => {
-              // Ensure we only reset animation lock when the parent slide reaches its centered state.
-              // This filters out child motion elements bubbling up.
-              if (definition === "center") {
-                setIsAnimating(false);
-              }
-            }}
-            transition={{
-              x: { ease: [0.16, 1, 0.3, 1], duration: 0.6 },
-              opacity: { ease: "linear", duration: 0.3 }
-            }}
-            drag={isAnimating ? false : "x"}
-            dragElastic={0.2}
-            dragConstraints={{ left: 0, right: 0 }}
-            onDragStart={() => setIsDragging(true)}
-            onDragEnd={handleDragEnd}
-            className="absolute inset-0 w-full h-full flex items-center cursor-grab active:cursor-grabbing select-none z-10 touch-pan-y"
-          >
-            {/* Background Gradient container */}
-            <div className={`absolute inset-0 bg-gradient-to-r ${currentSlide.bgGradient} opacity-95 z-0`} />
+        {/* ── Draggable content layer ─────────────────────── */}
+        <motion.div
+          drag={isAnimating ? false : "x"}
+          dragElastic={0.15}
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragStart={() => setIsDragging(true)}
+          onDragEnd={handleDragEnd}
+          className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing select-none touch-pan-y"
+        >
+          {/* ── Animated content ───────────────────────────── */}
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={`content-${currentIndex}`}
+              custom={direction}
+              variants={contentVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              onAnimationComplete={(def) => {
+                if (def === "center") setIsAnimating(false);
+              }}
+              className="absolute inset-0 flex items-center"
+            >
+              {/* ── Text block ─────────────────────────────── */}
+              <div className="w-full px-6 sm:px-10 lg:px-16 max-w-[640px] lg:max-w-[580px]">
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 w-full h-full px-6 sm:px-12 lg:px-16 items-center relative z-10">
-              
-              {/* Copywriter content column */}
-              <div className="md:col-span-7 text-center md:text-left space-y-4 md:space-y-6 pt-2 md:pt-0">
-                
-                {/* Floating Tag */}
+                {/* Tag badge */}
                 <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1, duration: 0.5 }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${currentSlide.tagColor}`}
+                  key={`tag-${currentIndex}`}
+                  custom={direction}
+                  variants={tagVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm mb-4 ${slide.tagColor}`}
                 >
-                  {currentSlide.tagIcon}
-                  <span>{currentSlide.tag}</span>
+                  {slide.tagIcon}
+                  <span>{slide.tag}</span>
                 </motion.div>
 
-                {/* Main Titles */}
-                <div className="space-y-1 sm:space-y-2">
-                  <motion.h2
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2, duration: 0.6 }}
-                    className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight"
-                  >
-                    {currentSlide.title}
-                  </motion.h2>
-                  
-                  <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3, duration: 0.6 }}
-                    className="text-base sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent leading-snug"
-                  >
-                    {currentSlide.titleAccent}
-                  </motion.p>
-                </div>
-
-                {/* Subtitle Description */}
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.6 }}
-                  className="text-[10px] sm:text-xs text-slate-400 max-w-xl mx-auto md:mx-0 leading-relaxed font-medium line-clamp-2 sm:line-clamp-none"
+                {/* Main headline */}
+                <motion.h2
+                  key={`h2-${currentIndex}`}
+                  custom={direction}
+                  variants={headlineVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-[1.05] tracking-tight mb-1 sm:mb-2"
                 >
-                  {currentSlide.description}
+                  {slide.headline}
+                </motion.h2>
+
+                {/* Gradient sub-headline */}
+                <motion.p
+                  key={`sub-${currentIndex}`}
+                  custom={direction}
+                  variants={subVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className={`text-base sm:text-2xl lg:text-3xl font-extrabold bg-gradient-to-r ${slide.accentColor} bg-clip-text text-transparent leading-snug mb-3 sm:mb-4`}
+                >
+                  {slide.subheadline}
                 </motion.p>
 
-                {/* CTA Action button */}
+                {/* Description — hidden on small mobile */}
+                <motion.p
+                  key={`desc-${currentIndex}`}
+                  custom={direction}
+                  variants={descVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="hidden sm:block text-xs sm:text-sm text-white/70 leading-relaxed mb-5 sm:mb-6 max-w-sm font-medium"
+                >
+                  {slide.description}
+                </motion.p>
+
+                {/* CTAs */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="pt-2"
+                  key={`cta-${currentIndex}`}
+                  custom={direction}
+                  variants={ctaVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="flex items-center gap-3 flex-wrap"
                 >
                   <Link
-                    href={currentSlide.ctaLink}
-                    className="inline-flex px-6 py-2.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 shadow-xl shadow-indigo-600/10 cursor-pointer select-none"
+                    href={slide.ctaLink}
+                    className={`inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r ${slide.accentColor} shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 cursor-pointer`}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {currentSlide.ctaText}
+                    {slide.ctaText}
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
+                  {slide.ctaSecondaryText && (
+                    <Link
+                      href={slide.ctaSecondaryLink ?? "#"}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-semibold text-white/80 border border-white/20 backdrop-blur-sm hover:bg-white/10 hover:text-white transition-all duration-300 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {slide.ctaSecondaryText}
+                    </Link>
+                  )}
                 </motion.div>
-
               </div>
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
 
-              {/* Product Visual Showcase column */}
-              <div className="hidden md:flex md:col-span-5 relative items-center justify-center h-[70%] md:h-[80%] z-10">
-                
-                {/* Visual Glass floating pedestal */}
-                <div className="absolute w-[220px] h-[220px] lg:w-[320px] lg:h-[320px] rounded-full border border-slate-900/60 pointer-events-none z-0" />
-                
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 15 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.8 }}
-                  className="relative w-[200px] h-[200px] lg:w-[280px] lg:h-[280px] rounded-[2rem] overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl z-10"
-                >
-                  <Image
-                    src={currentSlide.image}
-                    alt={currentSlide.titleAccent}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 300px"
-                    className="object-cover opacity-90 transition-transform duration-700 pointer-events-none"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none" />
-                </motion.div>
-
-              </div>
-
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Previous Button (Glass Arrow) */}
+        {/* ── Prev button ─────────────────────────────────── */}
         <button
-          onClick={handlePrev}
+          onClick={goToPrev}
           disabled={isAnimating}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border border-white/5 bg-[#020617]/50 hover:bg-indigo-600 text-slate-300 hover:text-white flex items-center justify-center backdrop-blur transition-all active:scale-95 z-25 opacity-100 lg:opacity-0 group-hover/carousel:opacity-100 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Previous Slide"
+          aria-label="Previous slide"
+          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
-        {/* Next Button (Glass Arrow) */}
+        {/* ── Next button ─────────────────────────────────── */}
         <button
-          onClick={handleNext}
+          onClick={goToNext}
           disabled={isAnimating}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border border-white/5 bg-[#020617]/50 hover:bg-indigo-600 text-slate-300 hover:text-white flex items-center justify-center backdrop-blur transition-all active:scale-95 z-25 opacity-100 lg:opacity-0 group-hover/carousel:opacity-100 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Next Slide"
+          aria-label="Next slide"
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-all duration-300 hover:bg-white/20 active:scale-90 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
-        {/* Pagination indicators bottom center */}
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-25 select-none">
-          {slides.map((slide, idx) => {
+        {/* ── Slide counter (top-right) ────────────────────── */}
+        <div className="absolute top-4 right-4 z-30 hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-sm">
+          <span className="text-[10px] font-bold text-white tabular-nums">{currentIndex + 1}</span>
+          <span className="text-[10px] text-white/40">/</span>
+          <span className="text-[10px] text-white/50 tabular-nums">{slides.length}</span>
+        </div>
+
+        {/* ── Dot pagination ───────────────────────────────── */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+          {slides.map((s, idx) => {
             const active = idx === currentIndex;
             return (
               <button
-                key={slide.id}
-                onClick={() => {
-                  if (isAnimating || idx === currentIndex) return;
-                  setIsAnimating(true);
-                  setDirection(idx > currentIndex ? 1 : -1);
-                  setCurrentIndex(idx);
-                }}
+                key={s.id}
+                onClick={() => goToSlide(idx)}
                 disabled={isAnimating}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                  active ? "w-6 bg-gradient-to-r from-blue-500 to-purple-500" : "w-2 bg-slate-800 hover:bg-slate-700"
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`rounded-full transition-all duration-300 cursor-pointer ${
+                  active
+                    ? "w-6 h-2 bg-white"
+                    : "w-2 h-2 bg-white/30 hover:bg-white/60"
                 }`}
-                aria-label={`Slide ${idx + 1}`}
               />
             );
           })}
         </div>
 
+        {/* ── Progress bar ─────────────────────────────────── */}
+        {!isHovered && !isDragging && (
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] z-30 bg-white/10 overflow-hidden">
+            <motion.div
+              key={currentIndex}
+              className="h-full bg-white/50"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: AUTOPLAY_INTERVAL / 1000, ease: "linear" }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
