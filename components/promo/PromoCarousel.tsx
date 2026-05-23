@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles, Tag, Flame, ShieldCheck, Gamepad2, Headphones } from "lucide-react";
 
 interface SlideData {
@@ -143,7 +143,7 @@ export const PromoCarousel: React.FC = () => {
   };
 
   // Drag/Swipe handler
-  const handleDragEnd = (event: any, info: any) => {
+  const handleDragEnd = (event: unknown, info: PanInfo) => {
     setIsDragging(false);
     const swipeThreshold = 50;
     if (info.offset.x < -swipeThreshold) {
